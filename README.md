@@ -99,7 +99,7 @@ target_link_libraries(YOUR_EXECUTABLE simplellama)
 ```
 Or manually clone this repo and add the library to your project using:
 ```cmake
-add_subdirectory(lowwi)
+add_subdirectory(simplellama)
 ...
 target_link_libraries(YOUR_EXECUTABLE simplellama)
 ```
