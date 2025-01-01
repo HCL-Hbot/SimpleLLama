@@ -111,6 +111,10 @@ See our [wiki](https://HCL-Hbot.github.io/SimpleLLama/)...
 ## Todo
 - Make it ovos compatible
 - Add compatibility for ARM SOC
+- Add wiki
+- Windows compatibility, sigh
+- Add tests
+- Add CI workflows
 
 ## License
 This work is licensed under the MIT License.
