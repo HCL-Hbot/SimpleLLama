@@ -1,0 +1,7 @@
+{
+    "name": "simplellama",
+    "cmake-args":[
+        "-DSIMPLELLAMA_ROS2_PACKAGE_BUILD=ON",
+        "-G Ninja"
+    ]
+}
