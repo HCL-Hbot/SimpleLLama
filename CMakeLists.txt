@@ -85,14 +85,14 @@ if(SIMPLELLAMA_BUILD_EXAMPLE)
     set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
   endif()
 
-  # FetchContent_Declare(
-  #     phi-2
-  #     URL https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q5_0.gguf
-  #     SOURCE_DIR ${CMAKE_BINARY_DIR}
-  #     URL_HASH SHA256=93143aff6d8566aac56fa88720dd8099ff076efac065dcd3538ae61a61ddd335
-  #     DOWNLOAD_NO_EXTRACT YES
-  # )
-  # FetchContent_MakeAvailable(phi-2)
+  FetchContent_Declare(
+      phi-2
+      URL https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q5_0.gguf
+      SOURCE_DIR ${CMAKE_BINARY_DIR}
+      URL_HASH SHA256=93143aff6d8566aac56fa88720dd8099ff076efac065dcd3538ae61a61ddd335
+      DOWNLOAD_NO_EXTRACT YES
+  )
+  FetchContent_MakeAvailable(phi-2)
 
 
 
