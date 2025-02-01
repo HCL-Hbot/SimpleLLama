@@ -67,14 +67,14 @@ if(SIMPLELLAMA_BUILD_EXAMPLE)
     find_package(rclcpp REQUIRED)
     find_package(std_srvs REQUIRED)
     find_package(std_msgs REQUIRED)
-    add_executable(ros2_demo ${CMAKE_CURRENT_LIST_DIR}/example/ros2_demo/ros2_demo.cpp)
-    ament_target_dependencies(ros2_demo
+    add_executable(simplellama_demo ${CMAKE_CURRENT_LIST_DIR}/example/ros2_demo/ros2_demo.cpp)
+    ament_target_dependencies(simplellama_demo
         rclcpp
         std_msgs
         std_srvs
       )
     install(TARGETS
-      ros2_demo
+      simplellama_demo
       DESTINATION lib/${PROJECT_NAME})
   else()
     add_executable(simple_text_demo ${CMAKE_CURRENT_LIST_DIR}/example/simple_text_demo/simple_text_demo.cpp)
