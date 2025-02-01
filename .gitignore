@@ -31,7 +31,14 @@
 *.out
 *.app
 
+# Any models
+*.gguf
+
 # IDE & Build folders
 Build/
 build/
 .vscode/
+
+# Any ROS folders
+log/
+install/
