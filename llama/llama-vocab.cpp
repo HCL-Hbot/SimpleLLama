@@ -16,6 +16,7 @@
 #include <queue>
 #include <set>
 #include <unordered_map>
+#include <cctype>
 
 //
 // helpers
@@ -341,6 +342,7 @@ struct llm_tokenizer_bpe : llm_tokenizer {
             case LLAMA_VOCAB_PRE_TYPE_MPT:
             case LLAMA_VOCAB_PRE_TYPE_OLMO:
             case LLAMA_VOCAB_PRE_TYPE_JAIS:
+            case LLAMA_VOCAB_PRE_TYPE_TRILLION:
                 regex_exprs = {
                     "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
                 };
@@ -392,6 +394,27 @@ struct llm_tokenizer_bpe : llm_tokenizer {
                     "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
                 };
                 break;
+            case LLAMA_VOCAB_PRE_TYPE_GPT4O:
+                regex_exprs = {
+                    // original regex from tokenizer.json
+                    // "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+                    "[^\\r\\n\\p{L}\\p{N}]?((?=[\\p{L}])([^a-z]))*((?=[\\p{L}])([^A-Z]))+(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])?|[^\\r\\n\\p{L}\\p{N}]?((?=[\\p{L}])([^a-z]))+((?=[\\p{L}])([^A-Z]))*(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])?|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_SUPERBPE:
+                regex_exprs = {
+                    "\\p{N}+",
+                    "(?=(\\d{3})+(?!\\d))",
+                };
+                break;
+            case LLAMA_VOCAB_PRE_TYPE_BAILINGMOE:
+                regex_exprs = {
+                    // original regex from tokenizer.json
+                    // "'(?i:[sdmt]|ll|ve|re)|[^\\r\\n\\p{L}\\p{N}]?+\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]++[\\r\\n]*|\\s*[\\r\\n]|\\s+(?!\\S)|\\s+"
+                    // FIXME? Changed possessive quantifiers (?+ and ++) to greedy to avoid errors and imatrix hanging (tried atomic grouping but it's not supported?)
+                    "'(?:[sSdDmMtT]|[lL][lL]|[vV][eE]|[rR][eE])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]|\\s+(?!\\S)|\\s+",
+                };
+                break;
             default:
                 // default regex for BPE tokenization pre-processing
                 regex_exprs = {
@@ -439,7 +462,7 @@ struct llm_tokenizer_bpe_session {
                 "also starts with a BOS token. So now the final prompt starts with 2 BOS tokens. "
                 "Are you sure this is what you want?\n", __FUNCTION__);
         }
-        if (vocab.get_add_bos() && output.size() >= 2 && *(output.end()-2) == vocab.token_eos()) {
+        if (vocab.get_add_eos() && output.size() >= 2 && *(output.end()-2) == vocab.token_eos()) {
             LLAMA_LOG_WARN(
                 "%s: Added a EOS token to the prompt as specified by the model but the prompt "
                 "also ends with a EOS token. So now the final prompt ends with 2 EOS tokens. "
@@ -1245,8 +1268,13 @@ struct llama_vocab::impl {
 
     std::vector<llama_token> cache_special_tokens;
     std::vector<std::string> cache_token_to_piece; // llama_token_to_piece(special = true);
-
-    std::map<std::pair<std::string, std::string>, int> bpe_ranks;
+    struct pair_hash {
+        size_t operator()(const std::pair<std::string, std::string> & p) const {
+            return std::hash<std::string>{}(p.first) ^  //create some hash for pair
+                   (std::hash<std::string>{}(p.second) << 1);
+        }
+    };
+    std::unordered_map<std::pair<std::string, std::string>, int, pair_hash> bpe_ranks;
 
     // set of all tokens that cause "end of generation"
     std::set<llama_token> special_eog_ids;
@@ -1356,8 +1384,9 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
 
             // read vocab size from metadata
             uint32_t n_tokens = 0;
-            if (!ml.get_key(LLM_KV_VOCAB_SIZE, n_tokens, false)) {
-                LLAMA_LOG_WARN("%s: there is no vocab_size in metadata\n", __func__);
+            if (ml.get_key(LLM_KV_VOCAB_SIZE, n_tokens, false)) {
+                LLAMA_LOG_WARN("%s: adding %u dummy tokens\n", __func__, n_tokens);
+                id_to_token.resize(n_tokens);
             }
 
             return;
@@ -1477,7 +1506,8 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                     tokenizer_pre == "llama3"   ||
                     tokenizer_pre == "llama-v3" ||
                     tokenizer_pre == "llama-bpe"||
-                    tokenizer_pre == "falcon3") {
+                    tokenizer_pre == "falcon3"  ||
+                    tokenizer_pre == "pixtral") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_LLAMA3;
                 ignore_merges = true;
                 add_bos = true;
@@ -1522,7 +1552,8 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_COMMAND_R;
                 clean_spaces = false;
             } else if (
-                tokenizer_pre == "qwen2") {
+                    tokenizer_pre == "qwen2" ||
+                    tokenizer_pre == "deepseek-r1-qwen") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_QWEN2;
                 clean_spaces = false;
             } else if (
@@ -1542,6 +1573,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_PORO;
                 clean_spaces = false;
             } else if (
+                tokenizer_pre == "glm4" ||
                 tokenizer_pre == "chatglm-bpe") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_CHATGLM4;
                 special_bos_id = LLAMA_TOKEN_NULL;
@@ -1585,6 +1617,23 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
             } else if (
                 tokenizer_pre == "megrez") {
                 pre_type = LLAMA_VOCAB_PRE_TYPE_QWEN2;
+            } else if (
+                    tokenizer_pre == "gpt-4o" ||
+                    tokenizer_pre == "llama4") {
+                pre_type = LLAMA_VOCAB_PRE_TYPE_GPT4O;
+                clean_spaces = false;
+            } else if (
+                tokenizer_pre == "superbpe") {
+                pre_type = LLAMA_VOCAB_PRE_TYPE_SUPERBPE;
+                clean_spaces = false;
+            } else if (
+                tokenizer_pre == "trillion") {
+                pre_type = LLAMA_VOCAB_PRE_TYPE_TRILLION;
+                clean_spaces = false;
+            } else if (
+                tokenizer_pre == "bailingmoe") {
+                pre_type = LLAMA_VOCAB_PRE_TYPE_BAILINGMOE;
+                clean_spaces = false;
             } else {
                 throw std::runtime_error(format("unknown pre-tokenizer type: '%s'", tokenizer_pre.c_str()));
             }
@@ -1685,7 +1734,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
         GGML_ASSERT(!ids.empty() && "model vocab missing newline token");
         linefeed_id = ids[0];
     } else {
-        const std::vector<int> ids = tokenize("\xC4\x8A", false); // U+010A
+        const std::vector<int> ids = tokenize("\n", false);
 
         //GGML_ASSERT(!ids.empty() && "model vocab missing newline token");
         if (ids.empty()) {
@@ -1762,6 +1811,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                         || t.first == "<end_of_turn>"
                         || t.first == "<|endoftext|>"
                         || t.first == "<EOT>"
+                        || t.first == "_<EOT>"
                         || t.first == "<｜end▁of▁sentence｜>" // DeepSeek
                    ) {
                     special_eot_id = t.second;
@@ -1792,8 +1842,10 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                 if (false
                         || t.first == "<|fim_prefix|>"  // Qwen
                         || t.first == "<fim-prefix>"
+                        || t.first == "<fim_prefix>"    // Granite
                         || t.first == "<｜fim▁begin｜>" // DeepSeek
                         || t.first == "<PRE>"
+                        || t.first == "▁<PRE>"          // CodeLlama
                         ) {
                     special_fim_pre_id = t.second;
                     if ((id_to_token[t.second].attr & LLAMA_TOKEN_ATTR_CONTROL) == 0) {
@@ -1809,8 +1861,10 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                 if (false
                         || t.first == "<|fim_suffix|>" // Qwen
                         || t.first == "<fim-suffix>"
+                        || t.first == "<fim_suffix>"   // Granite
                         || t.first == "<｜fim▁hole｜>" // DeepSeek
                         || t.first == "<SUF>"
+                        || t.first == "▁<SUF>"         // CodeLlama
                         ) {
                     special_fim_suf_id = t.second;
                     if ((id_to_token[t.second].attr & LLAMA_TOKEN_ATTR_CONTROL) == 0) {
@@ -1826,8 +1880,10 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                 if (false
                         || t.first == "<|fim_middle|>" // Qwen
                         || t.first == "<fim-middle>"
+                        || t.first == "<fim_middle>"   // Granite
                         || t.first == "<｜fim▁end｜>"  // DeepSeek
                         || t.first == "<MID>"
+                        || t.first == "▁<MID>"         // CodeLlama
                         ) {
                     special_fim_mid_id = t.second;
                     if ((id_to_token[t.second].attr & LLAMA_TOKEN_ATTR_CONTROL) == 0) {
@@ -1843,6 +1899,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                 if (false
                         || t.first == "<|fim_pad|>" // Qwen
                         || t.first == "<fim-pad>"
+                        || t.first == "<fim_pad>"   // Granite
                         || t.first == "<PAD>"
                         ) {
                     special_fim_pad_id = t.second;
@@ -1861,6 +1918,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                         || t.first == "<|repo_name|>"
                         || t.first == "<fim-repo>"
                         || t.first == "<REPO>"
+                        || t.first == "<reponame>"    // Granite
                         ) {
                     special_fim_rep_id = t.second;
                     if ((id_to_token[t.second].attr & LLAMA_TOKEN_ATTR_CONTROL) == 0) {
@@ -1912,6 +1970,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
                     || t.first == "<|endoftext|>"
                     || t.first == "<|eom_id|>"
                     || t.first == "<EOT>"
+                    || t.first == "_<EOT>"
                ) {
                 special_eog_ids.insert(t.second);
                 if ((id_to_token[t.second].attr & LLAMA_TOKEN_ATTR_CONTROL) == 0) {
@@ -2170,13 +2229,11 @@ void llama_vocab::impl::tokenizer_st_partition(std::forward_list<fragment_buffer
                     // find the first occurrence of a given special token in this fragment
                     //  passing offset argument only limit the "search area" but match coordinates
                     //  are still relative to the source full raw_text
-                    auto match = raw_text.find(text, raw_text_base_offset);
+                    //  string_view begins at pos 0 for the same reason
+                    auto match = std::string_view(raw_text.data(), raw_text_base_offset + raw_text_base_length).find(text, raw_text_base_offset);
 
                     // no occurrences found, stop processing this fragment for a given special token
                     if (match == std::string::npos) break;
-
-                    // check if match is within bounds of offset <-> length
-                    if (match + text.length() > raw_text_base_offset + raw_text_base_length) break;
 
 #ifdef PRETOKENIZERDEBUG
                     LLAMA_LOG_WARN("FF: (%ld %ld %ld) '%s'\n", raw_text->length(), raw_text_base_offset, raw_text_base_length, raw_text->substr(raw_text_base_offset, raw_text_base_length).c_str());

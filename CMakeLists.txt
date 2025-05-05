@@ -30,11 +30,16 @@ endif()
 # Get GGML if not present already
 if(TARGET ggml)
 else()
+set(_ggml_vk_genshaders_cmd "${CMAKE_BINARY_DIR}/_deps/ggml-build/vulkan-shaders-gen" CACHE STRING "Path to vulkan-shaders-gen tool")
+
   FetchContent_Declare(
     ggml
-    GIT_REPOSITORY https://github.com/ggerganov/ggml.git
-    GIT_TAG d92321c0d151fe73a47d89738c7c3091ac904297
+    GIT_REPOSITORY https://github.com/ggml-org/ggml.git
+    GIT_TAG f3a375f20bf56860b30e7c511d03593a1e393345
   )
+  set(GGML_RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin")
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${GGML_RUNTIME_DIR})
+
   FetchContent_MakeAvailable(ggml)
 endif()
 
@@ -51,6 +56,9 @@ add_library(llama ${CMAKE_CURRENT_LIST_DIR}/llama/llama.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-chat.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-context.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-cparams.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-graph.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-io.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-memory.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-hparams.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-impl.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-kv-cache.cpp
