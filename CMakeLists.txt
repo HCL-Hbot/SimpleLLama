@@ -21,7 +21,7 @@ option(SIMPLELLAMA_ROS2_PACKAGE_BUILD "Build a ROS2 package" OFF)
 
 find_package(SDL2 REQUIRED)
 
-if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set(CMAKE_CXX_STANDARD 17)
 else()
   set(SIMPLELLAMA_BUILD_EXAMPLE OFF)
@@ -34,17 +34,17 @@ else()
     ggml
     GIT_REPOSITORY https://github.com/ggerganov/ggml.git
     GIT_TAG 6a7a034e117f189df4d13665b9b604638ddca468
-)
+  )
   FetchContent_MakeAvailable(ggml)
 endif()
 
 # Add our fantastic llama.cpp library
 add_library(llama ${CMAKE_CURRENT_LIST_DIR}/llama/llama.cpp
-                  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-grammar.cpp
-                  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-sampling.cpp
-                  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-vocab.cpp
-                  ${CMAKE_CURRENT_LIST_DIR}/llama/unicode.cpp
-                  ${CMAKE_CURRENT_LIST_DIR}/llama/unicode-data.cpp)
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-grammar.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-sampling.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-vocab.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/unicode.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/unicode-data.cpp)
 target_include_directories(llama PUBLIC ${CMAKE_CURRENT_LIST_DIR}/llama)
 # It needs GGML for inference backends
 target_link_libraries(llama ggml)
@@ -54,7 +54,7 @@ add_library(simplellama ${CMAKE_CURRENT_LIST_DIR}/src/simplellama.cpp)
 target_include_directories(simplellama PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src)
 target_link_libraries(simplellama llama ggml ${SDL2_LIBRARIES})
 
-if (SIMPLELLAMA_ROS2_PACKAGE_BUILD)
+if(SIMPLELLAMA_ROS2_PACKAGE_BUILD)
   find_package(ament_cmake REQUIRED)
   find_package(rclcpp REQUIRED)
   find_package(std_msgs REQUIRED)
@@ -79,13 +79,21 @@ if(SIMPLELLAMA_BUILD_EXAMPLE)
     find_package(std_msgs REQUIRED)
     add_executable(simplellama_demo ${CMAKE_CURRENT_LIST_DIR}/example/ros2_demo/ros2_demo.cpp)
     ament_target_dependencies(simplellama_demo
-        rclcpp
-        std_msgs
-        std_srvs
-      )
+      rclcpp
+      std_msgs
+      std_srvs
+    )
     install(TARGETS
       simplellama_demo
       DESTINATION lib/${PROJECT_NAME})
+    install(TARGETS
+      simplellama llama
+      DESTINATION lib/
+    )
+    install(TARGETS
+      simplellama llama
+      DESTINATION lib64/
+    )
   else()
     add_executable(simple_text_demo ${CMAKE_CURRENT_LIST_DIR}/example/simple_text_demo/simple_text_demo.cpp)
     target_link_libraries(simple_text_demo simplellama)
@@ -96,6 +104,6 @@ if(SIMPLELLAMA_BUILD_EXAMPLE)
   endif()
 
 endif()
-if (SIMPLELLAMA_ROS2_PACKAGE_BUILD)
+if(SIMPLELLAMA_ROS2_PACKAGE_BUILD)
   ament_package()
 endif()
