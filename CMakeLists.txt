@@ -7,7 +7,7 @@ project(simplellama CXX)
 include(FetchContent)
 
 # Some of the more popular gpu options (VULKAN is great for NON-nvidia & CUDA is almost must-have for nvidia)
-option(GGML_VULKAN "Run with vulkan backend" OFF)
+option(GGML_VULKAN "Run with vulkan backend" ON)
 option(GGML_CUDA "Run with CUDA backend" OFF)
 
 # Perf options enables the profiling (tok/s) of the runs
@@ -33,7 +33,7 @@ else()
   FetchContent_Declare(
     ggml
     GIT_REPOSITORY https://github.com/ggerganov/ggml.git
-    GIT_TAG 6a7a034e117f189df4d13665b9b604638ddca468
+    GIT_TAG a2af72be7baf5b1f4a33d34e77e509e5e85b7cd7
   )
   FetchContent_MakeAvailable(ggml)
 endif()
@@ -44,7 +44,20 @@ add_library(llama ${CMAKE_CURRENT_LIST_DIR}/llama/llama.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-sampling.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/llama-vocab.cpp
   ${CMAKE_CURRENT_LIST_DIR}/llama/unicode.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/llama/unicode-data.cpp)
+  ${CMAKE_CURRENT_LIST_DIR}/llama/unicode-data.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-adapter.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-arch.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-batch.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-chat.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-context.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-cparams.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-hparams.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-impl.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-kv-cache.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-mmap.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-model-loader.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-model.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/llama/llama-quant.cpp)
 target_include_directories(llama PUBLIC ${CMAKE_CURRENT_LIST_DIR}/llama)
 # It needs GGML for inference backends
 target_link_libraries(llama ggml)

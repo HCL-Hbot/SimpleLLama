@@ -182,7 +182,7 @@ SimpleLLama::SimpleLLama(simplellama_model_params params)
         m_lmparams.n_gpu_layers = params.n_gpu_layers;
     }
 
-    model_llama = llama_load_model_from_file(params.model_llama.c_str(), m_lmparams);
+    model_llama = llama_model_load_from_file(params.model_llama.c_str(), m_lmparams);
     if (!model_llama)
     {
         fprintf(stderr, "No llama.cpp model specified. Please provide using -ml <modelfile>\n");
