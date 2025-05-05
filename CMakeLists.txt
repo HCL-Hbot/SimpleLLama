@@ -7,7 +7,7 @@ project(simplellama CXX)
 include(FetchContent)
 
 # Some of the more popular gpu options (VULKAN is great for NON-nvidia & CUDA is almost must-have for nvidia)
-option(GGML_VULKAN "Run with vulkan backend" ON)
+option(GGML_VULKAN "Run with vulkan backend" OFF)
 option(GGML_CUDA "Run with CUDA backend" OFF)
 
 # Perf options enables the profiling (tok/s) of the runs
@@ -30,8 +30,6 @@ endif()
 # Get GGML if not present already
 if(TARGET ggml)
 else()
-set(_ggml_vk_genshaders_cmd "${CMAKE_BINARY_DIR}/_deps/ggml-build/vulkan-shaders-gen" CACHE STRING "Path to vulkan-shaders-gen tool")
-
   FetchContent_Declare(
     ggml
     GIT_REPOSITORY https://github.com/ggml-org/ggml.git
