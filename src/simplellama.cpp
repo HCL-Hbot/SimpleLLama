@@ -89,16 +89,18 @@ std::string replace(const std::string &s, const std::string &from, const std::st
 
 static std::vector<llama_token> llama_tokenize(struct llama_context *ctx, const std::string &text, bool add_bos)
 {
-    auto *model = llama_get_model(ctx);
+    
+    const llama_model * model = llama_get_model(ctx);
+    const llama_vocab * vocab = llama_model_get_vocab(model);
 
     // upper limit for the number of tokens
     int n_tokens = text.length() + add_bos;
     std::vector<llama_token> result(n_tokens);
-    n_tokens = llama_tokenize(model, text.data(), text.length(), result.data(), result.size(), add_bos, false);
+    n_tokens = llama_tokenize(vocab, text.data(), text.length(), result.data(), result.size(), add_bos, false);
     if (n_tokens < 0)
     {
         result.resize(-n_tokens);
-        int check = llama_tokenize(model, text.data(), text.length(), result.data(), result.size(), add_bos, false);
+        int check = llama_tokenize(vocab, text.data(), text.length(), result.data(), result.size(), add_bos, false);
         GGML_ASSERT(check == -n_tokens);
     }
     else
@@ -111,11 +113,13 @@ static std::vector<llama_token> llama_tokenize(struct llama_context *ctx, const 
 static std::string llama_token_to_piece(const struct llama_context *ctx, llama_token token)
 {
     std::vector<char> result(8, 0);
-    const int n_tokens = llama_token_to_piece(llama_get_model(ctx), token, result.data(), result.size(), 0, false);
+    const llama_model * model = llama_get_model(ctx);
+    const llama_vocab * vocab = llama_model_get_vocab(model);
+    const int n_tokens = llama_token_to_piece(vocab, token, result.data(), result.size(), 0, false);
     if (n_tokens < 0)
     {
         result.resize(-n_tokens);
-        int check = llama_token_to_piece(llama_get_model(ctx), token, result.data(), result.size(), 0, false);
+        int check = llama_token_to_piece(vocab, token, result.data(), result.size(), 0, false);
         GGML_ASSERT(check == -n_tokens);
     }
     else
@@ -194,7 +198,8 @@ SimpleLLama::SimpleLLama(simplellama_model_params params)
     m_lcparams.n_threads = params.n_threads;
     m_lcparams.flash_attn = params.flash_attn;
     m_lcparams.no_perf = false;
-    m_ctx = llama_new_context_with_model(model_llama, m_lcparams);
+    m_ctx = llama_init_from_model(model_llama, m_lcparams);
+    m_vocab_llama = llama_model_get_vocab(model_llama);
 }
 
 void SimpleLLama::init()
@@ -429,7 +434,7 @@ std::string SimpleLLama::do_inference(std::string &text_heard)
 
             const llama_token id = llama_sampler_sample(smpl, m_ctx, -1);
 
-            if (id != llama_token_eos(model_llama))
+            if (id != llama_vocab_eos(m_vocab_llama))
             {
                 // add it to the context
                 m_embd.push_back(id);

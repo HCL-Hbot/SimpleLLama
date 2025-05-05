@@ -104,7 +104,9 @@ public:
 private:
     /* This is used to store model details (tokens, architecture, etc) about the to be loaded model */
     llama_model *model_llama;
+    llama_vocab * m_vocab;
 
+    const llama_vocab * m_vocab_llama;
     /* This is the context that is used with the model and session
      * When used with the session tokens, it can make the model react on previous responses (learn from it, kinda)
      */

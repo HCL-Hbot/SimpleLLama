@@ -33,7 +33,7 @@ else()
   FetchContent_Declare(
     ggml
     GIT_REPOSITORY https://github.com/ggerganov/ggml.git
-    GIT_TAG a2af72be7baf5b1f4a33d34e77e509e5e85b7cd7
+    GIT_TAG d92321c0d151fe73a47d89738c7c3091ac904297
   )
   FetchContent_MakeAvailable(ggml)
 endif()
